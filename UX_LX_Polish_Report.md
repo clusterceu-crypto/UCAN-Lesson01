@@ -1,28 +1,30 @@
-# UX/LX Polish Report — Lesson 01
+# UX/LX Polish Report — Lesson 01 RC v2
 
 ## Scope
-Виконано точкову фінальну UX/LX-корекцію поточної базової версії без зміни структури 13 сторінок, тестових питань, практичного завдання, PDF export, localStorage, Knowledge Check Gate, approved assets A01–A05, українського інтерфейсу, блоку ресурсів і відео-placeholder.
+Inserted approved case stories into the existing Lesson 01 interactive web version.
 
-## Changes Completed
-1. Output package підготовлено як один ZIP-архів `UCAN_Lesson_01_Interactive_RC_v1.zip`.
-2. Перевірено технічну цілісність підключення `style.css` та `script.js`.
-3. Page-based navigation збережено: активною є одна `.screen`, переходи працюють через “Далі”, “Назад” і меню.
-4. Блок “Приклади міст” переписано як прості короткі управлінські історії.
-5. Для кожної історії використано формат:
-   - 📍 Місто
-   - ⚠️ Що сталося?
-   - 🛠 Що вирішили зробити?
-   - ✅ Що це дало?
-   - 💡 Чому це Smart City?
-   - 🇺🇦 Що може зробити українська громада?
-   - 🔗 Джерело
-6. Для всіх джерел залишено placeholder: “Офіційне джерело буде додано після SVS verification.”
+## Changes completed
 
-## Status by Request
-| # | Request | Status |
-|---|---|---|
-| 1 | Сформувати один ZIP-архів | Closed |
-| 2 | Перевірити page-based navigation, CSS, JS | Closed |
-| 3 | Переробити історії міст простою мовою | Closed |
-| 4 | Не змінювати заборонені елементи | Closed |
-| 5 | Надати ZIP, reports, status | Closed |
+| Requested change | Status |
+|---|---|
+| Replace “Приклади міст” section title with “Як інші міста вже вирішували схожі проблеми” | Closed |
+| Insert four approved stories in required order | Closed |
+| Format each story as a separate readable card | Closed |
+| Use required story structure | Closed |
+| Rename headings only where required | Closed |
+| Preserve story body text without rewriting | Closed |
+| Preserve 13-page structure | Closed |
+| Preserve test questions | Closed |
+| Preserve practical task | Closed |
+| Preserve PDF export | Closed |
+| Preserve localStorage | Closed |
+| Preserve Knowledge Check Gate | Closed |
+| Preserve approved assets A01–A05 | Closed |
+| Preserve Ukrainian interface | Closed |
+| Preserve resource block and video placeholder | Closed |
+
+## Inserted story order
+1. Lahti, Фінляндія
+2. Stockholm, Швеція
+3. Vitoria-Gasteiz, Іспанія
+4. Українська громада: застосування логіки

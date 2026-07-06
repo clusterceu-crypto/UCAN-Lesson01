@@ -1,35 +1,19 @@
-# Website QA Self-Check — Lesson 01
+# Website QA Self-Check — Lesson 01 RC v2
 
-## Technical Integrity
-| Check | Result |
-|---|---|
-| `index.html` exists | PASS |
-| `style.css` exists and is linked as `href="style.css"` | PASS |
-| `script.js` exists and is linked as `src="script.js"` | PASS |
-| `.screen` default state hides inactive pages | PASS |
-| `.screen.active` displays only the current page | PASS |
-| “Далі” navigation retained | PASS |
-| “Назад” navigation retained | PASS |
-| Menu navigation retained | PASS |
-
-## Protected Functions
-| Check | Result |
-|---|---|
-| PDF / print export retained | PASS |
-| localStorage retained | PASS |
-| Knowledge Check Gate retained | PASS |
-| Test questions unchanged | PASS |
-| Practical task unchanged | PASS |
-| Approved assets A01–A05 retained | PASS |
-| Ukrainian interface retained | PASS |
-| Resources and video-placeholder retained | PASS |
-
-## Package Structure
-| Required item | Result |
-|---|---|
-| `/index.html` | PASS |
-| `/style.css` | PASS |
-| `/script.js` | PASS |
-| `/assets/` | PASS |
-| `/UX_LX_Polish_Report.md` | PASS |
-| `/Website_QA_Self_Check.md` | PASS |
+| QA area | Status | Note |
+|---|---|---|
+| CSS linked | Closed | `index.html` links to `style.css`. |
+| JS linked | Closed | `index.html` links to `script.js`. |
+| Page-based navigation | Closed | 13 `.screen` sections retained; CSS hides inactive screens. |
+| Next / Back buttons | Closed | Existing navigation logic preserved. |
+| Menu navigation | Closed | Existing menu generation and locks preserved. |
+| PDF export | Closed | Print/export button and print document preserved. |
+| localStorage | Closed | Existing storage prefix and field persistence preserved. |
+| Knowledge Check Gate | Closed | Quiz pass gate preserved in `script.js`. |
+| Approved assets | Closed | A01–A05 retained in `/assets/`. |
+| Case stories | Closed | Four approved stories inserted as cards. |
+| Desktop readability | Closed | Case cards use separated sections and spacing. |
+| Mobile readability | Closed | Cards are single-column and responsive. |
+| Resource/video placeholder | Closed | Not changed. |
+| Test questions | Closed | Not changed. |
+| Practical task | Closed | Not changed. |
