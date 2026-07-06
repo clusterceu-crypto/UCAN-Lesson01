@@ -199,11 +199,20 @@
     const feedback = document.getElementById('quizFeedback');
     const gateMessage = document.getElementById('quizGateMessage');
     const answerKey = document.getElementById('answerKey');
+    const quizAttemptsKey = storagePrefix + 'quizAttempts';
     if (!checkBtn || !feedback) return;
 
+    const hintText = [
+      'Перевірте, чи не сплутано Smart City із простою закупівлею технологій.',
+      'Зверніть увагу на відповіді, де є дані, координація і довгостроковий ефект.',
+      'У ситуаційних питаннях шукайте не найшвидшу дію, а управлінську логіку, яка зменшує повторення ризику.'
+    ];
+
+    if (answerKey) answerKey.open = false;
     if (quizPassed()) {
       feedback.className = 'feedback show success';
       feedback.textContent = 'Підсумковий тест уже пройдено. Ви можете перейти далі.';
+      if (answerKey) answerKey.open = true;
     }
 
     checkBtn.addEventListener('click', () => {
@@ -216,6 +225,7 @@
         localStorage.setItem(quizPassedKey, 'false');
         feedback.className = 'feedback show neutral';
         feedback.textContent = 'Дайте відповідь на всі питання, а потім натисніть “Перевірити тест”.';
+        if (answerKey) answerKey.open = false;
         updateMenuLocks();
         return;
       }
@@ -226,14 +236,26 @@
       });
       if (correct === Object.keys(answers).length) {
         localStorage.setItem(quizPassedKey, 'true');
+        localStorage.setItem(quizAttemptsKey, '0');
         feedback.className = 'feedback show success';
         feedback.textContent = 'Усі відповіді правильні. Ви можете перейти далі.';
+        if (answerKey) answerKey.open = true;
       } else {
+        const attempts = Number(localStorage.getItem(quizAttemptsKey) || 0) + 1;
+        localStorage.setItem(quizAttemptsKey, String(attempts));
         localStorage.setItem(quizPassedKey, 'false');
         feedback.className = 'feedback show neutral';
-        feedback.textContent = `Правильних відповідей: ${correct} з 5. Перегляньте пояснення і спробуйте ще раз.`;
+        if (attempts === 1) {
+          feedback.textContent = 'Є помилки. Спробуйте ще раз і зверніть увагу на управлінську логіку відповідей.';
+          if (answerKey) answerKey.open = false;
+        } else if (attempts === 2) {
+          feedback.innerHTML = '<strong>Є помилки. Підказки для другої спроби:</strong><ul class="quiz-hints">' + hintText.map(item => `<li>${item}</li>`).join('') + '</ul>';
+          if (answerKey) answerKey.open = false;
+        } else {
+          feedback.textContent = 'Є помилки. Тепер можна переглянути пояснення правильних відповідей і спробувати ще раз.';
+          if (answerKey) answerKey.open = true;
+        }
       }
-      if (answerKey) answerKey.open = true;
       updateMenuLocks();
     });
   }
