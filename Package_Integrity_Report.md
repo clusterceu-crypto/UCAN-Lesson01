@@ -1,33 +1,28 @@
-# Package Integrity Report — UCAN Lesson 01 Interactive RC v2
+# Package Integrity Report
 
-## Scope
-Technical package stabilization and insertion of approved case stories only.
+## Package
+UCAN_Lesson_01_RC_Story_Integration.zip
 
-## Integrity checks
+## Structure check
+- /index.html — present
+- /style.css — present
+- /script.js — present
+- /assets/ — present
+- /assets/L01_A01_Hero_APPROVED.png — present
+- /assets/L01_A02_Learning_Journey_APPROVED.png — present
+- /assets/L01_A03_City_Problem_to_Climate_Challenge_APPROVED.png — present
+- /assets/L01_A04_Smart_City_Cycle_APPROVED.png — present
+- /assets/L01_A05_People_Data_Analysis_Decision_Result_APPROVED.png — present
+- /Story_Integration_Report.md — present
+- /Package_Integrity_Report.md — present
 
-| Check | Status |
-|---|---|
-| ZIP contains index.html | Closed |
-| ZIP contains style.css | Closed |
-| ZIP contains script.js | Closed |
-| ZIP contains /assets/ with approved A01–A05 | Closed |
-| ZIP contains UX_LX_Polish_Report.md | Closed |
-| ZIP contains Website_QA_Self_Check.md | Closed |
-| ZIP contains Package_Integrity_Report.md | Closed |
-| index.html links to style.css | Closed |
-| index.html links to script.js | Closed |
-| Page-based navigation preserved | Closed |
-| Only one screen/page is visible at a time via CSS `.screen` / `.screen.active` | Closed |
-| “Далі” / “Назад” navigation preserved | Closed |
-| Menu navigation preserved | Closed |
-| PDF export preserved | Closed |
-| localStorage preserved | Closed |
-| Knowledge Check Gate preserved | Closed |
-| Approved visual assets A01–A05 preserved | Closed |
-| Lesson test questions unchanged | Closed |
-| Practical task unchanged | Closed |
-| Resource block and video placeholder unchanged | Closed |
-| Approved case stories inserted as readable cards | Closed |
+## Technical check
+- CSS is connected via `href="style.css"`.
+- JavaScript is connected via `src="script.js"`.
+- Page-based navigation is preserved by `.screen { display: none; }` and `.screen.active { display: block; }`.
+- The script preserves one active screen via `showScreen()`.
+- PDF export is preserved through `#printCard` and `window.print()`.
+- Knowledge Check Gate is preserved through quiz state in localStorage.
 
-## Notes
-The file “UCAN Curriculum Master Blueprint - UCAN Lesson 01 Update.html” was not used.
+## Status
+Closed.
