@@ -6,9 +6,9 @@
   const progressBar = document.getElementById('progressBar');
   const prevBtn = document.getElementById('prevBtn');
   const nextBtn = document.getElementById('nextBtn');
-  const taskBtn = document.getElementById('taskBtn');
   const storagePrefix = 'ucan_l01_page_rebuild_';
   const quizPassedKey = storagePrefix + 'quizPassed';
+  const decisionPassedKey = storagePrefix + 'decisionPassed';
   const highestPageKey = storagePrefix + 'highestPage';
   let current = Number(localStorage.getItem(storagePrefix + 'currentPage') || 0);
   let highestPage = Number(localStorage.getItem(highestPageKey) || 0);
@@ -16,9 +16,15 @@
   const knowledgeIndex = screens.findIndex(screen => screen.id === 'page-12');
   const reflectionIndex = screens.findIndex(screen => screen.id === 'page-13');
   const resourcesIndex = screens.findIndex(screen => screen.id === 'page-9');
+  const decisionIndex = screens.findIndex(screen => screen.id === 'page-10');
+  const practicalIndex = screens.findIndex(screen => screen.id === 'page-11');
 
   function quizPassed() {
     return localStorage.getItem(quizPassedKey) === 'true';
+  }
+
+  function decisionPassed() {
+    return localStorage.getItem(decisionPassedKey) === 'true';
   }
 
   function safeIndex(index) {
@@ -28,7 +34,8 @@
   function showGateMessage(message) {
     const quizGate = document.getElementById('quizGateMessage');
     const quizFeedback = document.getElementById('quizFeedback');
-    const target = current === knowledgeIndex && quizGate ? quizGate : quizFeedback || quizGate;
+    const decisionFeedback = document.getElementById('decisionFeedback');
+    const target = current === knowledgeIndex && quizGate ? quizGate : (current === decisionIndex && decisionFeedback ? decisionFeedback : quizFeedback || quizGate || decisionFeedback);
     if (target) {
       target.className = 'feedback show neutral';
       target.textContent = message;
@@ -39,6 +46,7 @@
 
   function canOpenPage(index) {
     if (index <= current) return true;
+    if (index >= practicalIndex && !decisionPassed()) return false;
     if (index === knowledgeIndex && highestPage < resourcesIndex) return false;
     if (index === reflectionIndex && !quizPassed()) return false;
     return true;
@@ -48,14 +56,17 @@
     const buttons = Array.from(pageMenu.querySelectorAll('button'));
     buttons.forEach((button, i) => {
       const lockedKnowledge = i === knowledgeIndex && highestPage < resourcesIndex;
+      const lockedPractice = i >= practicalIndex && !decisionPassed();
       const lockedReflection = i === reflectionIndex && !quizPassed();
-      const locked = lockedKnowledge || lockedReflection;
+      const locked = lockedKnowledge || lockedPractice || lockedReflection;
       button.disabled = locked;
       button.classList.toggle('locked', locked);
       if (locked) {
-        const reason = lockedKnowledge
-          ? 'Спочатку перегляньте попередні сторінки заняття.'
-          : 'Щоб перейти далі, спочатку пройдіть підсумковий тест.';
+        const reason = lockedPractice
+          ? 'Спочатку виконайте практичну ситуацію. Вона допоможе підготувати власну картку громади.'
+          : (lockedKnowledge
+            ? 'Спочатку перегляньте попередні сторінки заняття.'
+            : 'Щоб перейти далі, спочатку пройдіть підсумковий тест.');
         button.setAttribute('aria-disabled', 'true');
         button.setAttribute('title', reason);
       } else {
@@ -72,9 +83,11 @@
       btn.textContent = `${index + 1}. ${screen.dataset.title}`;
       btn.addEventListener('click', () => {
         if (!canOpenPage(index)) {
-          showGateMessage(index === reflectionIndex
-            ? 'Щоб перейти далі, спочатку пройдіть підсумковий тест.'
-            : 'Спочатку перегляньте попередні сторінки заняття.');
+          showGateMessage(index >= practicalIndex && !decisionPassed()
+            ? 'Спочатку виконайте практичну ситуацію. Вона допоможе підготувати власну картку громади.'
+            : (index === reflectionIndex
+              ? 'Щоб перейти далі, спочатку пройдіть підсумковий тест.'
+              : 'Спочатку перегляньте попередні сторінки заняття.'));
           return;
         }
         showScreen(index);
@@ -86,9 +99,11 @@
   function showScreen(index) {
     const requested = safeIndex(index);
     if (requested > current && !canOpenPage(requested)) {
-      showGateMessage(requested === reflectionIndex
-        ? 'Щоб перейти далі, спочатку пройдіть підсумковий тест.'
-        : 'Спочатку перегляньте попередні сторінки заняття.');
+      showGateMessage(requested >= practicalIndex && !decisionPassed()
+        ? 'Спочатку виконайте практичну ситуацію. Вона допоможе підготувати власну картку громади.'
+        : (requested === reflectionIndex
+          ? 'Щоб перейти далі, спочатку пройдіть підсумковий тест.'
+          : 'Спочатку перегляньте попередні сторінки заняття.'));
       return;
     }
 
@@ -175,20 +190,26 @@
       const selected = document.querySelector('input[name="decision"]:checked');
       if (!selected) {
         feedback.className = 'feedback show neutral';
-        feedback.textContent = 'Оберіть один варіант, щоб побачити feedback.';
+        localStorage.setItem(decisionPassedKey, 'false');
+        feedback.textContent = 'Оберіть один варіант, щоб побачити відповідь.';
+        updateMenuLocks();
         return;
       }
       if (selected.value === 'B') {
         feedback.className = 'feedback show success';
+        localStorage.setItem(decisionPassedKey, 'true');
         feedback.innerHTML = '<strong>Правильна управлінська логіка.</strong> Найкращий вибір — B. Він не відмовляється від швидкої дії, але додає те, чого бракує старій моделі: дані, просторовий аналіз, координацію і попередження повторення проблеми.';
+        updateMenuLocks();
       } else {
         const messages = {
           A: 'Швидко реагує, але не дає відповіді, чи проблема повториться. Спробуйте знайти варіант, який додає дані й координацію.',
           C: 'Може виглядати сучасно, але ризикує стати дорогим рішенням без управлінської логіки. Спочатку потрібно зрозуміти, які дані потрібні.',
           D: 'Стратегія важлива, але ризик для людей потребує першого керованого кроку вже зараз.'
         };
+        localStorage.setItem(decisionPassedKey, 'false');
         feedback.className = 'feedback show neutral';
         feedback.textContent = messages[selected.value];
+        updateMenuLocks();
       }
     });
   }
@@ -250,13 +271,16 @@
   prevBtn.addEventListener('click', () => showScreen(current - 1));
   nextBtn.addEventListener('click', () => {
     if (current === screens.length - 1) return;
+    if (current === decisionIndex && !decisionPassed()) {
+      showGateMessage('Спочатку виконайте практичну ситуацію. Вона допоможе підготувати власну картку громади.');
+      return;
+    }
     if (current === knowledgeIndex && !quizPassed()) {
       showGateMessage('Щоб перейти далі, спочатку пройдіть підсумковий тест.');
       return;
     }
     showScreen(current + 1);
   });
-  taskBtn.addEventListener('click', () => showScreen(10));
   document.querySelectorAll('[data-goto]').forEach(btn => btn.addEventListener('click', () => showScreen(Number(btn.dataset.goto) - 1)));
 
   buildMenu();
@@ -264,6 +288,7 @@
   setupDecision();
   setupQuiz();
   setupPrint();
+  if (current >= practicalIndex && !decisionPassed()) current = decisionIndex;
   if (current === reflectionIndex && !quizPassed()) current = knowledgeIndex;
   if (current === knowledgeIndex && highestPage < resourcesIndex) current = Math.min(highestPage, resourcesIndex);
   showScreen(current);
