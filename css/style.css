@@ -203,3 +203,39 @@ button { font: inherit; }
 @media (max-width: 560px) {
   .time-grid { grid-template-columns: 1fr; }
 }
+
+
+/* Final UX fixes: story separation and compact reference buttons */
+.case-story {
+  margin: 0 0 2.4rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--ucan-border);
+}
+.case-story:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.resource-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin-top: .55rem;
+}
+.resource-links .secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: .48rem .78rem;
+  font-size: .92rem;
+  line-height: 1.25;
+  text-decoration: none;
+}
+@media (max-width: 560px) {
+  .resource-links {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .resource-links .secondary-btn {
+    justify-content: center;
+  }
+}
