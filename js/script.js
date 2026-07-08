@@ -6,9 +6,10 @@
   const progressBar = document.getElementById('progressBar');
   const prevBtn = document.getElementById('prevBtn');
   const nextBtn = document.getElementById('nextBtn');
+  const taskBtn = document.getElementById('taskBtn');
   const storagePrefix = 'ucan_l01_page_rebuild_';
   const quizPassedKey = storagePrefix + 'quizPassed';
-  const decisionPassedKey = storagePrefix + 'decisionPassed';
+  const decisionCompletedKey = storagePrefix + 'decisionCompleted';
   const highestPageKey = storagePrefix + 'highestPage';
   let current = Number(localStorage.getItem(storagePrefix + 'currentPage') || 0);
   let highestPage = Number(localStorage.getItem(highestPageKey) || 0);
@@ -16,15 +17,14 @@
   const knowledgeIndex = screens.findIndex(screen => screen.id === 'page-12');
   const reflectionIndex = screens.findIndex(screen => screen.id === 'page-13');
   const resourcesIndex = screens.findIndex(screen => screen.id === 'page-9');
-  const decisionIndex = screens.findIndex(screen => screen.id === 'page-10');
-  const practicalIndex = screens.findIndex(screen => screen.id === 'page-11');
+  const interactiveIndex = screens.findIndex(screen => screen.id === 'page-10');
 
   function quizPassed() {
     return localStorage.getItem(quizPassedKey) === 'true';
   }
 
-  function decisionPassed() {
-    return localStorage.getItem(decisionPassedKey) === 'true';
+  function decisionCompleted() {
+    return localStorage.getItem(decisionCompletedKey) === 'true';
   }
 
   function safeIndex(index) {
@@ -35,7 +35,11 @@
     const quizGate = document.getElementById('quizGateMessage');
     const quizFeedback = document.getElementById('quizFeedback');
     const decisionFeedback = document.getElementById('decisionFeedback');
-    const target = current === knowledgeIndex && quizGate ? quizGate : (current === decisionIndex && decisionFeedback ? decisionFeedback : quizFeedback || quizGate || decisionFeedback);
+    const target = current === knowledgeIndex && quizGate
+      ? quizGate
+      : current === interactiveIndex && decisionFeedback
+        ? decisionFeedback
+        : quizFeedback || quizGate || decisionFeedback;
     if (target) {
       target.className = 'feedback show neutral';
       target.textContent = message;
@@ -46,27 +50,37 @@
 
   function canOpenPage(index) {
     if (index <= current) return true;
-    if (index >= practicalIndex && !decisionPassed()) return false;
+    if (interactiveIndex > -1 && index > interactiveIndex && !decisionCompleted()) return false;
     if (index === knowledgeIndex && highestPage < resourcesIndex) return false;
     if (index === reflectionIndex && !quizPassed()) return false;
     return true;
+  }
+
+  function gateMessageForIndex(index) {
+    if (interactiveIndex > -1 && index > interactiveIndex && !decisionCompleted()) {
+      return 'Спочатку завершіть інтерактивне завдання. Оберіть відповідь та натисніть «Перевірити».';
+    }
+    if (index === reflectionIndex && !quizPassed()) {
+      return 'Щоб перейти далі, спочатку пройдіть підсумковий тест.';
+    }
+    return 'Спочатку перегляньте попередні сторінки заняття.';
   }
 
   function updateMenuLocks() {
     const buttons = Array.from(pageMenu.querySelectorAll('button'));
     buttons.forEach((button, i) => {
       const lockedKnowledge = i === knowledgeIndex && highestPage < resourcesIndex;
-      const lockedPractice = i >= practicalIndex && !decisionPassed();
+      const lockedDecision = interactiveIndex > -1 && i > interactiveIndex && !decisionCompleted();
       const lockedReflection = i === reflectionIndex && !quizPassed();
-      const locked = lockedKnowledge || lockedPractice || lockedReflection;
+      const locked = lockedKnowledge || lockedDecision || lockedReflection;
       button.disabled = locked;
       button.classList.toggle('locked', locked);
       if (locked) {
-        const reason = lockedPractice
-          ? 'Спочатку виконайте практичну ситуацію. Вона допоможе підготувати власну картку громади.'
-          : (lockedKnowledge
+        const reason = lockedDecision
+          ? 'Спочатку завершіть інтерактивне завдання. Оберіть відповідь та натисніть «Перевірити».'
+          : lockedKnowledge
             ? 'Спочатку перегляньте попередні сторінки заняття.'
-            : 'Щоб перейти далі, спочатку пройдіть підсумковий тест.');
+            : 'Щоб перейти далі, спочатку пройдіть підсумковий тест.';
         button.setAttribute('aria-disabled', 'true');
         button.setAttribute('title', reason);
       } else {
@@ -83,11 +97,7 @@
       btn.textContent = `${index + 1}. ${screen.dataset.title}`;
       btn.addEventListener('click', () => {
         if (!canOpenPage(index)) {
-          showGateMessage(index >= practicalIndex && !decisionPassed()
-            ? 'Спочатку виконайте практичну ситуацію. Вона допоможе підготувати власну картку громади.'
-            : (index === reflectionIndex
-              ? 'Щоб перейти далі, спочатку пройдіть підсумковий тест.'
-              : 'Спочатку перегляньте попередні сторінки заняття.'));
+          showGateMessage(gateMessageForIndex(index));
           return;
         }
         showScreen(index);
@@ -99,11 +109,7 @@
   function showScreen(index) {
     const requested = safeIndex(index);
     if (requested > current && !canOpenPage(requested)) {
-      showGateMessage(requested >= practicalIndex && !decisionPassed()
-        ? 'Спочатку виконайте практичну ситуацію. Вона допоможе підготувати власну картку громади.'
-        : (requested === reflectionIndex
-          ? 'Щоб перейти далі, спочатку пройдіть підсумковий тест.'
-          : 'Спочатку перегляньте попередні сторінки заняття.'));
+      showGateMessage(gateMessageForIndex(requested));
       return;
     }
 
@@ -190,26 +196,22 @@
       const selected = document.querySelector('input[name="decision"]:checked');
       if (!selected) {
         feedback.className = 'feedback show neutral';
-        localStorage.setItem(decisionPassedKey, 'false');
-        feedback.textContent = 'Оберіть один варіант, щоб побачити відповідь.';
-        updateMenuLocks();
+        feedback.textContent = 'Оберіть один варіант, щоб побачити feedback.';
         return;
       }
+      localStorage.setItem(decisionCompletedKey, 'true');
+      updateMenuLocks();
       if (selected.value === 'B') {
         feedback.className = 'feedback show success';
-        localStorage.setItem(decisionPassedKey, 'true');
         feedback.innerHTML = '<strong>Правильна управлінська логіка.</strong> Найкращий вибір — B. Він не відмовляється від швидкої дії, але додає те, чого бракує старій моделі: дані, просторовий аналіз, координацію і попередження повторення проблеми.';
-        updateMenuLocks();
       } else {
         const messages = {
           A: 'Швидко реагує, але не дає відповіді, чи проблема повториться. Спробуйте знайти варіант, який додає дані й координацію.',
           C: 'Може виглядати сучасно, але ризикує стати дорогим рішенням без управлінської логіки. Спочатку потрібно зрозуміти, які дані потрібні.',
           D: 'Стратегія важлива, але ризик для людей потребує першого керованого кроку вже зараз.'
         };
-        localStorage.setItem(decisionPassedKey, 'false');
         feedback.className = 'feedback show neutral';
         feedback.textContent = messages[selected.value];
-        updateMenuLocks();
       }
     });
   }
@@ -259,6 +261,74 @@
     });
   }
 
+
+  function setupAIAssistantPrompt() {
+    const copyBtn = document.getElementById('copyAIPrompt');
+    const feedback = document.getElementById('aiPromptFeedback');
+    if (!copyBtn) return;
+    const aiPrompt = `# UCAN Lesson 01 Learning Assistant
+
+Ти — навчальний помічник UCAN для Заняття 01: “Вступ до урбанізації, змін клімату та концепції Smart City”.
+
+Твоя роль:
+1. Відповідати на запитання учасника по змісту заняття.
+2. Допомагати учаснику сформулювати “Картку кліматичного виклику громади”.
+3. Перевіряти практичне завдання не як екзаменатор, а як методичний наставник.
+4. Не вигадувати кейси, джерела або факти.
+5. Якщо інформації немає в матеріалах Lesson 01 або затверджених ресурсах — чесно сказати, що потрібно перевірити джерело.
+
+Canonical source:
+Використовуй лише зміст Lesson 01, затверджені Story Cards, Resource Links і практичний артефакт “Картка кліматичного виклику громади”.
+
+Не використовуй legacy-версії Lesson 01.
+
+Стиль відповіді:
+- українською мовою;
+- просто;
+- практично;
+- для міських голів і управлінських команд;
+- без академічної складності;
+- без надмірної технічності.
+
+Коли учасник просить допомогти з практичним завданням, перевіряй картку за критеріями:
+
+1. Чи чітко описаний міський виклик?
+2. Чи пояснено, чому стара модель управління не працює?
+3. Чи названі потрібні дані?
+4. Чи зрозуміло, хто має діяти разом?
+5. Чи сформульовано перший реалістичний smart-крок?
+6. Чи немає переходу одразу до великого проєкту без діагностики?
+7. Чи збережена управлінська логіка: проблема → дані → команда → рішення → перший крок?
+
+Формат зворотного зв'язку:
+
+1. Що вже добре.
+2. Що варто уточнити.
+3. Одне запитання для покращення.
+4. Покращена версія формулювання, якщо учасник просить.
+
+Не став оцінку в балах.
+Не критикуй різко.
+Не вигадуй відповідь замість учасника, а допомагай покращити його власну логіку.
+
+Почни з питання:
+“Який міський виклик Ви хочете описати у картці?”`;
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(aiPrompt);
+        if (feedback) {
+          feedback.className = 'feedback show success';
+          feedback.textContent = 'Промпт скопійовано. Відкрийте ChatGPT або Gemini та вставте його в чат.';
+        }
+      } catch (error) {
+        if (feedback) {
+          feedback.className = 'feedback show neutral';
+          feedback.textContent = 'Не вдалося скопіювати автоматично. Виділіть промпт вручну або спробуйте ще раз.';
+        }
+      }
+    });
+  }
+
   function setupPrint() {
     const printBtn = document.getElementById('printCard');
     if (!printBtn) return;
@@ -271,8 +341,8 @@
   prevBtn.addEventListener('click', () => showScreen(current - 1));
   nextBtn.addEventListener('click', () => {
     if (current === screens.length - 1) return;
-    if (current === decisionIndex && !decisionPassed()) {
-      showGateMessage('Спочатку виконайте практичну ситуацію. Вона допоможе підготувати власну картку громади.');
+    if (current === interactiveIndex && !decisionCompleted()) {
+      showGateMessage('Спочатку завершіть інтерактивне завдання. Оберіть відповідь та натисніть «Перевірити».');
       return;
     }
     if (current === knowledgeIndex && !quizPassed()) {
@@ -281,6 +351,7 @@
     }
     showScreen(current + 1);
   });
+  if (taskBtn) taskBtn.addEventListener('click', () => showScreen(10));
   document.querySelectorAll('[data-goto]').forEach(btn => btn.addEventListener('click', () => showScreen(Number(btn.dataset.goto) - 1)));
 
   buildMenu();
@@ -288,7 +359,8 @@
   setupDecision();
   setupQuiz();
   setupPrint();
-  if (current >= practicalIndex && !decisionPassed()) current = decisionIndex;
+  setupAIAssistantPrompt();
+  if (interactiveIndex > -1 && current > interactiveIndex && !decisionCompleted()) current = interactiveIndex;
   if (current === reflectionIndex && !quizPassed()) current = knowledgeIndex;
   if (current === knowledgeIndex && highestPage < resourcesIndex) current = Math.min(highestPage, resourcesIndex);
   showScreen(current);
