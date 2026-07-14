@@ -35,10 +35,10 @@
     const quizGate = document.getElementById('quizGateMessage');
     const quizFeedback = document.getElementById('quizFeedback');
     const decisionFeedback = document.getElementById('decisionFeedback');
-    const target = current === knowledgeIndex && quizGate
-      ? quizGate
-      : current === interactiveIndex && decisionFeedback
-        ? decisionFeedback
+    const target = current === interactiveIndex && decisionFeedback
+      ? decisionFeedback
+      : current === knowledgeIndex && quizGate
+        ? quizGate
         : quizFeedback || quizGate || decisionFeedback;
     if (target) {
       target.className = 'feedback show neutral';
@@ -46,6 +46,16 @@
     } else {
       window.alert(message);
     }
+  }
+
+  function gateMessageForIndex(index) {
+    if (interactiveIndex > -1 && index > interactiveIndex && !decisionCompleted()) {
+      return 'Спочатку завершіть інтерактивне завдання. Оберіть правильну відповідь та натисніть «Перевірити».';
+    }
+    if (index === reflectionIndex && !quizPassed()) {
+      return 'Щоб перейти далі, спочатку пройдіть підсумковий тест.';
+    }
+    return 'Спочатку перегляньте попередні сторінки заняття.';
   }
 
   function canOpenPage(index) {
@@ -56,28 +66,18 @@
     return true;
   }
 
-  function gateMessageForIndex(index) {
-    if (interactiveIndex > -1 && index > interactiveIndex && !decisionCompleted()) {
-      return 'Спочатку завершіть інтерактивне завдання. Оберіть відповідь та натисніть «Перевірити».';
-    }
-    if (index === reflectionIndex && !quizPassed()) {
-      return 'Щоб перейти далі, спочатку пройдіть підсумковий тест.';
-    }
-    return 'Спочатку перегляньте попередні сторінки заняття.';
-  }
-
   function updateMenuLocks() {
     const buttons = Array.from(pageMenu.querySelectorAll('button'));
     buttons.forEach((button, i) => {
-      const lockedKnowledge = i === knowledgeIndex && highestPage < resourcesIndex;
       const lockedDecision = interactiveIndex > -1 && i > interactiveIndex && !decisionCompleted();
+      const lockedKnowledge = i === knowledgeIndex && highestPage < resourcesIndex;
       const lockedReflection = i === reflectionIndex && !quizPassed();
-      const locked = lockedKnowledge || lockedDecision || lockedReflection;
+      const locked = lockedDecision || lockedKnowledge || lockedReflection;
       button.disabled = locked;
       button.classList.toggle('locked', locked);
       if (locked) {
         const reason = lockedDecision
-          ? 'Спочатку завершіть інтерактивне завдання. Оберіть відповідь та натисніть «Перевірити».'
+          ? 'Спочатку завершіть інтерактивне завдання. Оберіть правильну відповідь та натисніть «Перевірити».'
           : lockedKnowledge
             ? 'Спочатку перегляньте попередні сторінки заняття.'
             : 'Щоб перейти далі, спочатку пройдіть підсумковий тест.';
@@ -199,11 +199,11 @@
         feedback.textContent = 'Оберіть один варіант, щоб побачити feedback.';
         return;
       }
-      localStorage.setItem(decisionCompletedKey, 'true');
-      updateMenuLocks();
       if (selected.value === 'B') {
+        localStorage.setItem(decisionCompletedKey, 'true');
         feedback.className = 'feedback show success';
         feedback.innerHTML = '<strong>Правильна управлінська логіка.</strong> Найкращий вибір — B. Він не відмовляється від швидкої дії, але додає те, чого бракує старій моделі: дані, просторовий аналіз, координацію і попередження повторення проблеми.';
+        updateMenuLocks();
       } else {
         const messages = {
           A: 'Швидко реагує, але не дає відповіді, чи проблема повториться. Спробуйте знайти варіант, який додає дані й координацію.',
@@ -261,70 +261,59 @@
     });
   }
 
-
-  function setupAIAssistantPrompt() {
+  function setupAIAssistant() {
     const copyBtn = document.getElementById('copyAIPrompt');
     const feedback = document.getElementById('aiPromptFeedback');
-    if (!copyBtn) return;
-    const aiPrompt = `# UCAN Lesson 01 Learning Assistant
+    if (!copyBtn || !feedback) return;
 
-Ти — навчальний помічник UCAN для Заняття 01: “Вступ до урбанізації, змін клімату та концепції Smart City”.
+    function buildPrompt() {
+      const answers = worksheetLabels.map(([key, label]) => {
+        const value = getValue(key).trim() || '[не заповнено]';
+        return `${label}\n${value}`;
+      }).join('\n\n');
 
-Твоя роль:
-1. Відповідати на запитання учасника по змісту заняття.
-2. Допомагати учаснику сформулювати “Картку кліматичного виклику громади”.
-3. Перевіряти практичне завдання не як екзаменатор, а як методичний наставник.
-4. Не вигадувати кейси, джерела або факти.
-5. Якщо інформації немає в матеріалах Lesson 01 або затверджених ресурсах — чесно сказати, що потрібно перевірити джерело.
+      return `Ви — AI-помічник UCAN для міського голови та управлінської команди.
 
-Canonical source:
-Використовуй лише зміст Lesson 01, затверджені Story Cards, Resource Links і практичний артефакт “Картка кліматичного виклику громади”.
+Допоможіть перевірити логіку Картки кліматичного виклику громади. Не пишіть завдання замість мене, не вигадуйте факти й не додавайте непідтверджені дані.
 
-Не використовуй legacy-версії Lesson 01.
+Перевірте послідовність: проблема → дані → команда → рішення → перший крок.
 
-Стиль відповіді:
-- українською мовою;
-- просто;
-- практично;
-- для міських голів і управлінських команд;
-- без академічної складності;
-- без надмірної технічності.
+Моя картка:
 
-Коли учасник просить допомогти з практичним завданням, перевіряй картку за критеріями:
+${answers}
 
-1. Чи чітко описаний міський виклик?
-2. Чи пояснено, чому стара модель управління не працює?
-3. Чи названі потрібні дані?
-4. Чи зрозуміло, хто має діяти разом?
-5. Чи сформульовано перший реалістичний smart-крок?
-6. Чи немає переходу одразу до великого проєкту без діагностики?
-7. Чи збережена управлінська логіка: проблема → дані → команда → рішення → перший крок?
+Дайте короткий зворотний зв’язок за чотирма пунктами:
+1. Що сформульовано чітко.
+2. Що потребує уточнення.
+3. Яке одне управлінське питання варто додати.
+4. Який реалістичний перший крок можна обговорити з командою.`;
+    }
 
-Формат зворотного зв'язку:
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const copied = document.execCommand('copy');
+      textarea.remove();
+      if (!copied) throw new Error('Copy command failed');
+    }
 
-1. Що вже добре.
-2. Що варто уточнити.
-3. Одне запитання для покращення.
-4. Покращена версія формулювання, якщо учасник просить.
-
-Не став оцінку в балах.
-Не критикуй різко.
-Не вигадуй відповідь замість учасника, а допомагай покращити його власну логіку.
-
-Почни з питання:
-“Який міський виклик Ви хочете описати у картці?”`;
     copyBtn.addEventListener('click', async () => {
       try {
-        await navigator.clipboard.writeText(aiPrompt);
-        if (feedback) {
-          feedback.className = 'feedback show success';
-          feedback.textContent = 'Промпт скопійовано. Відкрийте ChatGPT або Gemini та вставте його в чат.';
-        }
+        await copyText(buildPrompt());
+        feedback.className = 'feedback show success';
+        feedback.textContent = 'Промпт скопійовано. Відкрийте обраний AI-сервіс і вставте його в чат.';
       } catch (error) {
-        if (feedback) {
-          feedback.className = 'feedback show neutral';
-          feedback.textContent = 'Не вдалося скопіювати автоматично. Виділіть промпт вручну або спробуйте ще раз.';
-        }
+        feedback.className = 'feedback show neutral';
+        feedback.textContent = 'Не вдалося скопіювати автоматично. Спробуйте ще раз у захищеному браузерному вікні.';
       }
     });
   }
@@ -342,7 +331,7 @@ Canonical source:
   nextBtn.addEventListener('click', () => {
     if (current === screens.length - 1) return;
     if (current === interactiveIndex && !decisionCompleted()) {
-      showGateMessage('Спочатку завершіть інтерактивне завдання. Оберіть відповідь та натисніть «Перевірити».');
+      showGateMessage('Спочатку завершіть інтерактивне завдання. Оберіть правильну відповідь та натисніть «Перевірити».');
       return;
     }
     if (current === knowledgeIndex && !quizPassed()) {
@@ -358,8 +347,8 @@ Canonical source:
   storeFormValues();
   setupDecision();
   setupQuiz();
+  setupAIAssistant();
   setupPrint();
-  setupAIAssistantPrompt();
   if (interactiveIndex > -1 && current > interactiveIndex && !decisionCompleted()) current = interactiveIndex;
   if (current === reflectionIndex && !quizPassed()) current = knowledgeIndex;
   if (current === knowledgeIndex && highestPage < resourcesIndex) current = Math.min(highestPage, resourcesIndex);
