@@ -1,0 +1,14 @@
+{
+  "name": "ucan-lesson01-browser-qa",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "serve:qa": "http-server . -a 127.0.0.1 -p 41731 -c-1",
+    "test:smoke": "playwright test tests/smoke.spec.js",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "http-server": "^14.1.1"
+  }
+}
