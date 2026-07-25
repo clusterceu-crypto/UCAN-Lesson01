@@ -7,10 +7,6 @@
   const prevBtn = document.getElementById('prevBtn');
   const nextBtn = document.getElementById('nextBtn');
   const taskBtn = document.getElementById('taskBtn');
-  const pageLabel = document.getElementById('page-label');
-  const navPageCount = document.getElementById('nav-page-count');
-  const globalStatus = document.getElementById('global-status');
-  const progressTrack = document.getElementById('progressTrack');
   const storagePrefix = 'ucan_l01_page_rebuild_';
   const quizPassedKey = storagePrefix + 'quizPassed';
   const decisionCompletedKey = storagePrefix + 'decisionCompleted';
@@ -132,17 +128,14 @@
     progressLabel.textContent = `Сторінка ${current + 1} з ${screens.length}`;
     progressPercent.textContent = `${percent}%`;
     progressBar.style.width = `${percent}%`;
-    if (progressTrack) progressTrack.setAttribute('aria-valuenow', String(percent));
-    if (pageLabel) pageLabel.textContent = screens[current].dataset.title || '';
-    if (navPageCount) navPageCount.textContent = `${current + 1} / ${screens.length}`;
     prevBtn.disabled = current === 0;
-    nextBtn.textContent = current === screens.length - 1 ? 'Заняття завершено' : 'Наступний розділ ➡️';
+    nextBtn.textContent = 'Далі';
+    nextBtn.hidden = current === screens.length - 1;
     localStorage.setItem(storagePrefix + 'currentPage', String(current));
     updateMenuLocks();
     updatePreview();
     document.getElementById('lesson-main').focus({ preventScroll: true });
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function storeFormValues() {
@@ -158,6 +151,7 @@
   }
 
   const worksheetLabels = [
+    ['communityName', 'Назва Вашої громади'],
     ['challenge', 'Який міський виклик Ви обрали?'],
     ['oldModel', 'Чому стара модель управління тут більше не працює?'],
     ['dataNeeded', 'Які дані потрібні для кращого рішення?'],
@@ -178,11 +172,14 @@
     const preview = document.getElementById('cardPreview');
     const printAnswers = document.getElementById('printAnswers');
     const printDate = document.getElementById('printDate');
+    const printCommunityName = document.getElementById('printCommunityName');
     if (!printAnswers || !printDate) return;
 
     const today = new Date().toLocaleDateString('uk-UA');
     printDate.textContent = today;
-    const rows = worksheetLabels.map(([key, label]) => {
+    if (printCommunityName) printCommunityName.textContent = getValue('communityName') || '—';
+    const artifactRows = worksheetLabels.filter(([key]) => key !== 'communityName');
+    const rows = artifactRows.map(([key, label]) => {
       const value = escapeHtml(getValue(key) || '—').replace(/\n/g, '<br>');
       return `<div class="preview-row"><strong>${label}</strong><span>${value}</span></div>`;
     }).join('');
@@ -190,7 +187,7 @@
     if (preview) {
       preview.innerHTML = `<p><strong>Картка кліматичного виклику громади</strong></p><p>Дата: ${today}</p>${rows}`;
     }
-    printAnswers.innerHTML = worksheetLabels.map(([key, label]) => {
+    printAnswers.innerHTML = artifactRows.map(([key, label]) => {
       const value = escapeHtml(getValue(key) || '—').replace(/\n/g, '<br>');
       return `<div class="print-answer"><strong>${label}</strong><span>${value}</span></div>`;
     }).join('');
@@ -271,80 +268,169 @@
 
   function setupAIAssistant() {
     const copyBtn = document.getElementById('copyAIPrompt');
-    const preview = document.getElementById('l01-ai-prompt-preview');
     const feedback = document.getElementById('aiPromptFeedback');
-    const modes = Array.from(document.querySelectorAll('input[name="l01-ai-mode"]'));
-    if (!copyBtn || !preview || !feedback || !modes.length) return;
-
-    const instructions = {
-      facts: 'Перевір факти й припущення. Відділи твердження, що випливають із моєї картки, від припущень. Назви прогалини, які потребують даних або перевірки. Не вигадуй місцевих фактів.',
-      questions: 'Постав до трьох коротких уточнювальних запитань, які допоможуть мені самостійно покращити картку. Не давай готової відповіді замість мене.',
-      structure: 'Перевір повноту та слабкі місця рішення. Знайди пропущені ризики, відсутні зв’язки та логічні прогалини. Не переписуй і не скорочуй текст.'
-    };
+    if (!copyBtn || !feedback) return;
 
     function buildPrompt() {
-      const mode = modes.find(input => input.checked)?.value || 'facts';
       const answers = worksheetLabels.map(([key, label]) => {
         const value = getValue(key).trim() || '[не заповнено]';
         return `${label}\n${value}`;
       }).join('\n\n');
-      return `Ви допомагаєте перевірити Картку кліматичного виклику громади в курсі UCAN.\n\n${instructions[mode]}\n\nПрацюйте лише з наведеними нижче відповідями. Не ухвалюйте рішення замість мене. Перевіряйте зв’язок зі Smart City як управлінською логікою: проблема → дані → команда → рішення → перший крок.\n\nМоя картка:\n\n${answers}`;
+
+      return `Ви — AI-помічник UCAN для міського голови та управлінської команди.
+
+Допоможіть перевірити логіку Картки кліматичного виклику громади. Не пишіть завдання замість мене, не вигадуйте факти й не додавайте непідтверджені дані.
+
+Перевірте послідовність: проблема → дані → команда → рішення → перший крок.
+
+Моя картка:
+
+${answers}
+
+Дайте короткий зворотний зв’язок за чотирма пунктами:
+1. Що сформульовано чітко.
+2. Що потребує уточнення.
+3. Яке одне управлінське питання варто додати.
+4. Який реалістичний перший крок можна обговорити з командою.`;
     }
-    function renderPrompt() { preview.textContent = buildPrompt(); }
-    modes.forEach(input => input.addEventListener('change', () => { renderPrompt(); feedback.textContent = 'Режим змінено. Запит оновлено.'; input.focus(); }));
-    document.querySelectorAll('#page-11 textarea, #page-11 input[type="text"]').forEach(el => el.addEventListener('input', renderPrompt));
+
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const copied = document.execCommand('copy');
+      textarea.remove();
+      if (!copied) throw new Error('Copy command failed');
+    }
+
     copyBtn.addEventListener('click', async () => {
-      renderPrompt();
       try {
-        await window.UCANInterface.copyText(preview.textContent);
+        await copyText(buildPrompt());
         feedback.className = 'feedback show success';
-        feedback.textContent = 'Запит скопійовано. Відкрийте обраний сервіс і вставте його лише за власним рішенням.';
+        feedback.textContent = 'Промпт скопійовано. Відкрийте обраний AI-сервіс і вставте його в чат.';
       } catch (error) {
         feedback.className = 'feedback show neutral';
-        feedback.textContent = 'Не вдалося скопіювати автоматично. Виділіть текст у попередньому перегляді та скопіюйте вручну.';
+        feedback.textContent = 'Не вдалося скопіювати автоматично. Спробуйте ще раз у захищеному браузерному вікні.';
       }
-      copyBtn.focus();
     });
-    renderPrompt();
+  }
+
+
+  function setupImageModal() {
+    const modal = document.getElementById('imageModal');
+    const modalImage = document.getElementById('imageModalImage');
+    const caption = document.getElementById('imageModalCaption');
+    const closeBtn = document.getElementById('imageModalClose');
+    if (!modal || !modalImage || !closeBtn) return;
+    let trigger = null;
+
+    function openModal(image) {
+      trigger = image;
+      modalImage.src = image.currentSrc || image.src;
+      modalImage.alt = image.alt || '';
+      caption.textContent = image.alt || '';
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+      closeBtn.focus();
+    }
+
+    function closeModal() {
+      if (!modal.classList.contains('open')) return;
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      modalImage.removeAttribute('src');
+      document.body.classList.remove('modal-open');
+      if (trigger) trigger.focus();
+    }
+
+    document.querySelectorAll('.zoomable-image').forEach(image => {
+      image.addEventListener('click', () => openModal(image));
+      image.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openModal(image);
+        }
+      });
+    });
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', event => {
+      if (event.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') closeModal();
+    });
+  }
+
+  function buildChallengeCardText() {
+    const today = new Date().toLocaleDateString('uk-UA');
+    const rows = worksheetLabels.map(([key, label]) => {
+      const value = getValue(key).trim() || '—';
+      return `${label}\n${value}`;
+    }).join('\n\n');
+    return `Картка кліматичного виклику громади\nДата: ${today}\n\n${rows}`;
+  }
+
+  async function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand('copy');
+    textarea.remove();
+    if (!copied) throw new Error('Copy command failed');
+  }
+
+  function setupFinalActions() {
+    const copyBtn = document.getElementById('copyChallengeCard');
+    const nextLessonBtn = document.getElementById('nextLessonBtn');
+    const feedback = document.getElementById('finalActionFeedback');
+    if (copyBtn && feedback) {
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await copyToClipboard(buildChallengeCardText());
+          feedback.className = 'feedback show success';
+          feedback.textContent = 'Картку скопійовано';
+        } catch (error) {
+          feedback.className = 'feedback show neutral';
+          feedback.textContent = 'Не вдалося скопіювати картку автоматично. Спробуйте ще раз у захищеному браузерному вікні.';
+        }
+      });
+    }
+    if (nextLessonBtn && feedback) {
+      nextLessonBtn.addEventListener('click', () => {
+        const target = nextLessonBtn.dataset.nextLessonUrl.trim();
+        if (target) {
+          window.location.assign(target);
+          return;
+        }
+        feedback.className = 'feedback show neutral';
+        feedback.textContent = 'Посилання на наступне заняття ще не визначено.';
+      });
+    }
   }
 
   function setupPrint() {
     const printBtn = document.getElementById('printCard');
-    const status = document.getElementById('portfolioStatus') || globalStatus;
     if (!printBtn) return;
-    printBtn.addEventListener('click', async () => {
+    printBtn.addEventListener('click', () => {
       updatePreview();
-      const data = Object.fromEntries(worksheetLabels.map(([key]) => [key, getValue(key)]));
-      const community = window.UCANInterface.sanitizeFilename(data.challenge).slice(0, 40);
-      await window.UCANInterface.downloadPortfolioPdf({
-        button: printBtn,
-        status,
-        title: 'Картка кліматичного виклику громади',
-        label: 'Портфель мера',
-        filename: community ? `UCAN_Картка_кліматичного_виклику_${community}.pdf` : 'UCAN_Картка_кліматичного_виклику.pdf',
-        fields: worksheetLabels.map(([key, label]) => ({ key, label })),
-        data,
-        note: 'Чернетка створена учасником. Перевірте дані та припущення разом із відповідальними підрозділами громади.'
-      });
-    });
-  }
-
-
-  function setupReset() {
-    const reset = document.getElementById('reset-progress-top');
-    if (!reset) return;
-    reset.addEventListener('click', () => {
-      const confirmed = window.confirm('Скинути прогрес, інтерактивне завдання та підсумковий тест? Дані практичної картки залишаться збереженими.');
-      if (!confirmed) return;
-      localStorage.removeItem(storagePrefix + 'currentPage');
-      localStorage.removeItem(highestPageKey);
-      localStorage.removeItem(quizPassedKey);
-      localStorage.removeItem(decisionCompletedKey);
-      highestPage = 0;
-      document.querySelectorAll('input[type="radio"]').forEach(input => { input.checked = false; });
-      document.querySelectorAll('.feedback').forEach(el => { el.textContent = ''; el.className = 'feedback'; });
-      if (globalStatus) globalStatus.textContent = 'Навчальний прогрес скинуто. Практична картка збережена.';
-      showScreen(0);
+      window.print();
     });
   }
 
@@ -370,7 +456,8 @@
   setupQuiz();
   setupAIAssistant();
   setupPrint();
-  setupReset();
+  setupImageModal();
+  setupFinalActions();
   if (interactiveIndex > -1 && current > interactiveIndex && !decisionCompleted()) current = interactiveIndex;
   if (current === reflectionIndex && !quizPassed()) current = knowledgeIndex;
   if (current === knowledgeIndex && highestPage < resourcesIndex) current = Math.min(highestPage, resourcesIndex);
