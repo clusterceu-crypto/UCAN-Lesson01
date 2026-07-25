@@ -27,3 +27,32 @@ Scope: approved UX and learner-facing changes only
 ## Boundary
 
 No PNG files, cases, sources, methodology, or core learning-content structure were changed. The Google Drive canonical package was not modified.
+
+---
+
+# UCAN Lesson 01 — Controlled Functional Hotfix v1.0
+
+Date: 2026-07-25  
+Input checkpoint: `UCAN_Lesson_01_Controlled_UX_Revision_v1.0_Checkpoint.zip`  
+Scope: functional corrections only
+
+## Changed files
+
+- `index.html`
+- `css/style.css`
+- `js/script.js`
+- `CHANGE_LOG.md`
+- `MANUAL_VERIFICATION_STATUS.md`
+- `HOTFIX_REPORT.md` added
+
+## Functional corrections
+
+1. Corrected the image-lightbox initialization order and completed click, X, backdrop, Escape, focus-return, and scroll-lock behavior.
+2. Restored three separate AI-helper scenarios, each with its own current-card-aware prompt and Copy action.
+3. Added the required AI safety instruction to every prompt.
+4. Replaced browser printing with direct client-side PDF generation and download.
+5. Preserved the existing practical-form storage flow, Interactive Decision Gate, quiz gate, final page, artifact copy action, and controlled next-lesson placeholder.
+
+## Boundary
+
+No approved PNG, case, source, methodology, core lesson structure, final-page learner-facing content, GitHub repository, or Google Drive canonical package was changed.
