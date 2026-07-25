@@ -256,15 +256,22 @@
   }
 
   function setupAIAssistant() {
-    const copyButtons = Array.from(document.querySelectorAll('[data-ai-scenario]'));
-    const feedback = document.getElementById('aiPromptFeedback');
-    if (!copyButtons.length || !feedback) return;
+    const showButtons = Array.from(document.querySelectorAll('[data-ai-action="show"]'));
+    const copyButtons = Array.from(document.querySelectorAll('[data-ai-action="copy"]'));
+    if (!showButtons.length || !copyButtons.length) return;
 
-    const safetyInstruction = 'Не оцінюй картку як підтверджений факт. Відокремлюй припущення від інформації користувача. Не використовуй формулювання "ідеально", "правильно", "гарантовано". Не додавай непідтверджені факти.';
+    const safetyInstruction = [
+      'Не оцінюй картку як підтверджений факт.',
+      'Відокремлюй інформацію користувача від припущень.',
+      'Не використовуй формулювання “ідеально”, “правильно”, “гарантовано”.',
+      'Не додавай непідтверджені факти.',
+      'Усі пропозиції позначай як гіпотези або варіанти для перевірки.'
+    ].join('\n');
 
     function cardContext() {
       return worksheetLabels.map(([key, label]) => {
-        const value = getValue(key).trim() || '[не заповнено]';
+        const rawValue = getValue(key);
+        const value = typeof rawValue === 'string' && rawValue.trim() ? rawValue.trim() : 'Не заповнено';
         return `${label}\n${value}`;
       }).join('\n\n');
     }
@@ -272,25 +279,62 @@
     function buildPrompt(scenario) {
       const card = cardContext();
       const prompts = {
-        logic: `Ви — AI-помічник UCAN для міського голови та управлінської команди.\n\nЗавдання: перевірити логіку Картки кліматичного виклику громади. Не переписуйте завдання замість користувача. Перевірте, чи послідовно пов’язані: міський виклик → причина неефективності старої моделі → потрібні дані → залучені департаменти або партнери → smart-підхід → перший крок.\n\nКартка користувача:\n\n${card}\n\nДайте відповідь у чотирьох коротких блоках:\n1. Логічні зв’язки, які вже зрозумілі.\n2. Прогалини або суперечності, які варто уточнити.\n3. Припущення, які потрібно перевірити даними або розмовою з командою.\n4. Одне уточнювальне управлінське питання.\n\n${safetyInstruction}`,
-        wording: `Ви — AI-помічник UCAN для міського голови та управлінської команди.\n\nЗавдання: допомогти уточнити формулювання Картки кліматичного виклику громади, зберігаючи зміст користувача. Не додавайте нових фактів, прикладів, цифр, причин або висновків. Не перетворюйте припущення на твердження.\n\nКартка користувача:\n\n${card}\n\nДля кожного заповненого поля:\n1. Коротко вкажіть, що може бути незрозумілим або надто загальним.\n2. Запропонуйте одне ясніше формулювання без зміни змісту.\n3. Позначте, яку інформацію ще має підтвердити користувач.\n\nНе заповнюйте порожні поля замість користувача.\n\n${safetyInstruction}`,
-        'first-step': `Ви — AI-помічник UCAN для міського голови та управлінської команди.\n\nЗавдання: перевірити реалістичність першого кроку з Картки кліматичного виклику громади на період найближчих двох тижнів. Спирайтеся лише на інформацію користувача.\n\nКартка користувача:\n\n${card}\n\nПеревірте перший крок за п’ятьма критеріями:\n1. Чи має він конкретний результат.\n2. Чи зрозуміло, хто має почати дію.\n3. Чи доступні потрібні дані або їх можна швидко запросити.\n4. Чи залежить крок від непідтверджених рішень, ресурсів або партнерів.\n5. Чи реально розпочати або завершити його протягом двох тижнів.\n\nНаприкінці запропонуйте не більше двох обережних варіантів уточнення першого кроку, не додаючи нових фактів.\n\n${safetyInstruction}`
+        logic: `Ви — AI-помічник UCAN для міського голови та управлінської команди.\n\nЗавдання: перевірити логіку Картки кліматичного виклику громади. Не переписуйте завдання замість користувача. Перевірте, чи послідовно пов’язані: міський виклик → причина неефективності старої моделі → потрібні дані → залучені департаменти або партнери → smart-підхід → перший крок.\n\nКартка користувача:\n\n${card}\n\nДайте відповідь у чотирьох коротких блоках:\n1. Логічні зв’язки, які вже зрозумілі.\n2. Прогалини або суперечності, які варто уточнити.\n3. Припущення, які потрібно перевірити даними або розмовою з командою.\n4. Одне уточнювальне управлінське питання.\n\nПравила безпеки:\n${safetyInstruction}`,
+        wording: `Ви — AI-помічник UCAN для міського голови та управлінської команди.\n\nЗавдання: допомогти уточнити формулювання Картки кліматичного виклику громади, зберігаючи зміст користувача. Не додавайте нових фактів, прикладів, цифр, причин або висновків. Не перетворюйте припущення на твердження.\n\nКартка користувача:\n\n${card}\n\nДля кожного заповненого поля:\n1. Коротко вкажіть, що може бути незрозумілим або надто загальним.\n2. Запропонуйте одне ясніше формулювання без зміни змісту.\n3. Позначте, яку інформацію ще має підтвердити користувач.\n\nНе заповнюйте порожні поля замість користувача.\n\nПравила безпеки:\n${safetyInstruction}`,
+        'first-step': `Ви — AI-помічник UCAN для міського голови та управлінської команди.\n\nЗавдання: перевірити реалістичність першого кроку з Картки кліматичного виклику громади на період найближчих двох тижнів. Спирайтеся лише на інформацію користувача.\n\nКартка користувача:\n\n${card}\n\nПеревірте перший крок за п’ятьма критеріями:\n1. Чи має він конкретний результат.\n2. Чи зрозуміло, хто має почати дію.\n3. Чи доступні потрібні дані або їх можна швидко запросити.\n4. Чи залежить крок від непідтверджених рішень, ресурсів або партнерів.\n5. Чи реально розпочати або завершити його протягом двох тижнів.\n\nНаприкінці запропонуйте не більше двох обережних варіантів уточнення першого кроку, не додаючи нових фактів.\n\nПравила безпеки:\n${safetyInstruction}`
       };
-      return prompts[scenario] || '';
+      const prompt = prompts[scenario];
+      return typeof prompt === 'string' && prompt.trim() ? prompt : 'Не вдалося сформувати prompt.';
     }
+
+    function renderPrompt(scenario, focusPrompt) {
+      const panel = document.querySelector(`[data-ai-panel="${scenario}"]`);
+      const output = document.querySelector(`[data-ai-prompt="${scenario}"]`);
+      const showButton = document.querySelector(`[data-ai-action="show"][data-ai-scenario="${scenario}"]`);
+      if (!panel || !output) return '';
+      const prompt = buildPrompt(scenario);
+      output.textContent = prompt;
+      panel.hidden = false;
+      if (showButton) {
+        showButton.textContent = 'Оновити prompt';
+        showButton.setAttribute('aria-expanded', 'true');
+      }
+      if (focusPrompt) output.focus({ preventScroll: true });
+      return prompt;
+    }
+
+    showButtons.forEach(button => {
+      button.setAttribute('aria-expanded', 'false');
+      button.addEventListener('click', () => renderPrompt(button.dataset.aiScenario, true));
+    });
 
     copyButtons.forEach(button => {
       button.addEventListener('click', async () => {
         const scenario = button.dataset.aiScenario;
-        const prompt = buildPrompt(scenario);
+        const status = document.querySelector(`[data-ai-status="${scenario}"]`);
+        const prompt = renderPrompt(scenario, false);
         try {
           await copyToClipboard(prompt);
-          feedback.className = 'feedback show success';
-          feedback.textContent = 'Промпт скопійовано. Відкрийте обраний AI-сервіс і вставте його в чат.';
+          if (status) {
+            status.className = 'ai-copy-status show success';
+            status.textContent = 'Скопійовано';
+          }
         } catch (error) {
-          feedback.className = 'feedback show neutral';
-          feedback.textContent = 'Не вдалося скопіювати автоматично. Спробуйте ще раз у захищеному браузерному вікні.';
+          if (status) {
+            status.className = 'ai-copy-status show neutral';
+            status.textContent = 'Не вдалося скопіювати. Виділіть prompt і скопіюйте його вручну.';
+          }
         }
+      });
+    });
+
+    document.querySelectorAll('[data-store]').forEach(field => {
+      field.addEventListener('input', () => {
+        document.querySelectorAll('.ai-prompt-panel:not([hidden])').forEach(panel => {
+          const scenario = panel.dataset.aiPanel;
+          const output = document.querySelector(`[data-ai-prompt="${scenario}"]`);
+          if (output) output.textContent = buildPrompt(scenario);
+        });
       });
     });
   }
@@ -488,7 +532,7 @@
       if (isFirst) {
         ctx.fillStyle = '#123b63';
         ctx.font = '700 42px Arial, "Noto Sans", sans-serif';
-        const titleLines = wrapCanvasText(ctx, 'Картка кліматичного виклику громади', contentWidth);
+        const titleLines = wrapCanvasText(ctx, 'Картка кліматичного виклику', contentWidth);
         let titleY = 166;
         titleLines.forEach(line => {
           ctx.fillText(line, margin, titleY);
@@ -510,7 +554,7 @@
       } else {
         ctx.fillStyle = '#123b63';
         ctx.font = '700 28px Arial, "Noto Sans", sans-serif';
-        ctx.fillText('Картка кліматичного виклику громади', margin, 158);
+        ctx.fillText('Картка кліматичного виклику', margin, 158);
         y = 222;
       }
       pages.push(canvas);
@@ -566,11 +610,13 @@
     return pages;
   }
 
-  async function canvasToJpegBytes(canvas) {
-    const blob = await new Promise((resolve, reject) => {
-      canvas.toBlob(result => result ? resolve(result) : reject(new Error('Canvas export failed')), 'image/jpeg', 0.94);
-    });
-    return new Uint8Array(await blob.arrayBuffer());
+  function canvasToJpegBytes(canvas) {
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.94);
+    const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+    const binary = window.atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return bytes;
   }
 
   function buildImagePdf(images, pixelWidth, pixelHeight) {
@@ -644,7 +690,7 @@
     const feedback = document.getElementById('pdfExportFeedback');
     if (!pdfBtn) return;
 
-    pdfBtn.addEventListener('click', async () => {
+    pdfBtn.addEventListener('click', () => {
       const originalText = pdfBtn.textContent;
       pdfBtn.disabled = true;
       pdfBtn.textContent = 'Створення PDF…';
@@ -654,19 +700,21 @@
       }
       try {
         const canvases = createArtifactCanvases();
-        const images = [];
-        for (const canvas of canvases) images.push(await canvasToJpegBytes(canvas));
+        if (!canvases.length) throw new Error('PDF pages were not created');
+        const images = canvases.map(canvasToJpegBytes);
         const pdfBlob = buildImagePdf(images, canvases[0].width, canvases[0].height);
+        if (!pdfBlob.size) throw new Error('PDF file is empty');
         const community = safeFilePart(getValue('communityName'));
         const fileName = `Картка_кліматичного_виклику_${community}_${formatLocalIsoDate(new Date())}.pdf`;
         const url = URL.createObjectURL(pdfBlob);
         const link = document.createElement('a');
         link.href = url;
         link.download = fileName;
+        link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
         link.remove();
-        window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+        window.setTimeout(() => URL.revokeObjectURL(url), 5000);
         if (feedback) {
           feedback.className = 'feedback show success';
           feedback.textContent = 'PDF створено та завантажено.';
@@ -676,6 +724,7 @@
           feedback.className = 'feedback show neutral';
           feedback.textContent = 'Не вдалося створити PDF у цьому браузері. Спробуйте оновити сторінку або відкрити її в сучасному браузері.';
         }
+        console.error('UCAN PDF export failed:', error);
       } finally {
         pdfBtn.disabled = false;
         pdfBtn.textContent = originalText;
