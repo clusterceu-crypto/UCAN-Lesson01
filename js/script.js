@@ -7,6 +7,10 @@
   const prevBtn = document.getElementById('prevBtn');
   const nextBtn = document.getElementById('nextBtn');
   const taskBtn = document.getElementById('taskBtn');
+  const pageLabel = document.getElementById('page-label');
+  const navPageCount = document.getElementById('nav-page-count');
+  const globalStatus = document.getElementById('global-status');
+  const progressTrack = document.getElementById('progressTrack');
   const storagePrefix = 'ucan_l01_page_rebuild_';
   const quizPassedKey = storagePrefix + 'quizPassed';
   const decisionCompletedKey = storagePrefix + 'decisionCompleted';
@@ -128,13 +132,17 @@
     progressLabel.textContent = `Сторінка ${current + 1} з ${screens.length}`;
     progressPercent.textContent = `${percent}%`;
     progressBar.style.width = `${percent}%`;
+    if (progressTrack) progressTrack.setAttribute('aria-valuenow', String(percent));
+    if (pageLabel) pageLabel.textContent = screens[current].dataset.title || '';
+    if (navPageCount) navPageCount.textContent = `${current + 1} / ${screens.length}`;
     prevBtn.disabled = current === 0;
-    nextBtn.textContent = current === screens.length - 1 ? 'Завершити' : 'Далі';
+    nextBtn.textContent = current === screens.length - 1 ? 'Заняття завершено' : 'Наступний розділ ➡️';
     localStorage.setItem(storagePrefix + 'currentPage', String(current));
     updateMenuLocks();
     updatePreview();
     document.getElementById('lesson-main').focus({ preventScroll: true });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
   }
 
   function storeFormValues() {
@@ -263,67 +271,80 @@
 
   function setupAIAssistant() {
     const copyBtn = document.getElementById('copyAIPrompt');
+    const preview = document.getElementById('l01-ai-prompt-preview');
     const feedback = document.getElementById('aiPromptFeedback');
-    if (!copyBtn || !feedback) return;
+    const modes = Array.from(document.querySelectorAll('input[name="l01-ai-mode"]'));
+    if (!copyBtn || !preview || !feedback || !modes.length) return;
+
+    const instructions = {
+      facts: 'Перевір факти й припущення. Відділи твердження, що випливають із моєї картки, від припущень. Назви прогалини, які потребують даних або перевірки. Не вигадуй місцевих фактів.',
+      questions: 'Постав до трьох коротких уточнювальних запитань, які допоможуть мені самостійно покращити картку. Не давай готової відповіді замість мене.',
+      structure: 'Перевір повноту та слабкі місця рішення. Знайди пропущені ризики, відсутні зв’язки та логічні прогалини. Не переписуй і не скорочуй текст.'
+    };
 
     function buildPrompt() {
+      const mode = modes.find(input => input.checked)?.value || 'facts';
       const answers = worksheetLabels.map(([key, label]) => {
         const value = getValue(key).trim() || '[не заповнено]';
         return `${label}\n${value}`;
       }).join('\n\n');
-
-      return `Ви — AI-помічник UCAN для міського голови та управлінської команди.
-
-Допоможіть перевірити логіку Картки кліматичного виклику громади. Не пишіть завдання замість мене, не вигадуйте факти й не додавайте непідтверджені дані.
-
-Перевірте послідовність: проблема → дані → команда → рішення → перший крок.
-
-Моя картка:
-
-${answers}
-
-Дайте короткий зворотний зв’язок за чотирма пунктами:
-1. Що сформульовано чітко.
-2. Що потребує уточнення.
-3. Яке одне управлінське питання варто додати.
-4. Який реалістичний перший крок можна обговорити з командою.`;
+      return `Ви допомагаєте перевірити Картку кліматичного виклику громади в курсі UCAN.\n\n${instructions[mode]}\n\nПрацюйте лише з наведеними нижче відповідями. Не ухвалюйте рішення замість мене. Перевіряйте зв’язок зі Smart City як управлінською логікою: проблема → дані → команда → рішення → перший крок.\n\nМоя картка:\n\n${answers}`;
     }
-
-    async function copyText(text) {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-        return;
-      }
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.setAttribute('readonly', '');
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      const copied = document.execCommand('copy');
-      textarea.remove();
-      if (!copied) throw new Error('Copy command failed');
-    }
-
+    function renderPrompt() { preview.textContent = buildPrompt(); }
+    modes.forEach(input => input.addEventListener('change', () => { renderPrompt(); feedback.textContent = 'Режим змінено. Запит оновлено.'; input.focus(); }));
+    document.querySelectorAll('#page-11 textarea, #page-11 input[type="text"]').forEach(el => el.addEventListener('input', renderPrompt));
     copyBtn.addEventListener('click', async () => {
+      renderPrompt();
       try {
-        await copyText(buildPrompt());
+        await window.UCANInterface.copyText(preview.textContent);
         feedback.className = 'feedback show success';
-        feedback.textContent = 'Промпт скопійовано. Відкрийте обраний AI-сервіс і вставте його в чат.';
+        feedback.textContent = 'Запит скопійовано. Відкрийте обраний сервіс і вставте його лише за власним рішенням.';
       } catch (error) {
         feedback.className = 'feedback show neutral';
-        feedback.textContent = 'Не вдалося скопіювати автоматично. Спробуйте ще раз у захищеному браузерному вікні.';
+        feedback.textContent = 'Не вдалося скопіювати автоматично. Виділіть текст у попередньому перегляді та скопіюйте вручну.';
       }
+      copyBtn.focus();
     });
+    renderPrompt();
   }
 
   function setupPrint() {
     const printBtn = document.getElementById('printCard');
+    const status = document.getElementById('portfolioStatus') || globalStatus;
     if (!printBtn) return;
-    printBtn.addEventListener('click', () => {
+    printBtn.addEventListener('click', async () => {
       updatePreview();
-      window.print();
+      const data = Object.fromEntries(worksheetLabels.map(([key]) => [key, getValue(key)]));
+      const community = window.UCANInterface.sanitizeFilename(data.challenge).slice(0, 40);
+      await window.UCANInterface.downloadPortfolioPdf({
+        button: printBtn,
+        status,
+        title: 'Картка кліматичного виклику громади',
+        label: 'Портфель мера',
+        filename: community ? `UCAN_Картка_кліматичного_виклику_${community}.pdf` : 'UCAN_Картка_кліматичного_виклику.pdf',
+        fields: worksheetLabels.map(([key, label]) => ({ key, label })),
+        data,
+        note: 'Чернетка створена учасником. Перевірте дані та припущення разом із відповідальними підрозділами громади.'
+      });
+    });
+  }
+
+
+  function setupReset() {
+    const reset = document.getElementById('reset-progress-top');
+    if (!reset) return;
+    reset.addEventListener('click', () => {
+      const confirmed = window.confirm('Скинути прогрес, інтерактивне завдання та підсумковий тест? Дані практичної картки залишаться збереженими.');
+      if (!confirmed) return;
+      localStorage.removeItem(storagePrefix + 'currentPage');
+      localStorage.removeItem(highestPageKey);
+      localStorage.removeItem(quizPassedKey);
+      localStorage.removeItem(decisionCompletedKey);
+      highestPage = 0;
+      document.querySelectorAll('input[type="radio"]').forEach(input => { input.checked = false; });
+      document.querySelectorAll('.feedback').forEach(el => { el.textContent = ''; el.className = 'feedback'; });
+      if (globalStatus) globalStatus.textContent = 'Навчальний прогрес скинуто. Практична картка збережена.';
+      showScreen(0);
     });
   }
 
@@ -349,6 +370,7 @@ ${answers}
   setupQuiz();
   setupAIAssistant();
   setupPrint();
+  setupReset();
   if (interactiveIndex > -1 && current > interactiveIndex && !decisionCompleted()) current = interactiveIndex;
   if (current === reflectionIndex && !quizPassed()) current = knowledgeIndex;
   if (current === knowledgeIndex && highestPage < resourcesIndex) current = Math.min(highestPage, resourcesIndex);
