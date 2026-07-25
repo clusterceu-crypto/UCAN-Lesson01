@@ -256,9 +256,8 @@
   }
 
   function setupAIAssistant() {
-    const showButtons = Array.from(document.querySelectorAll('[data-ai-action="show"]'));
     const copyButtons = Array.from(document.querySelectorAll('[data-ai-action="copy"]'));
-    if (!showButtons.length || !copyButtons.length) return;
+    if (!copyButtons.length) return;
 
     const safetyInstruction = [
       'Не оцінюй картку як підтверджений факт.',
@@ -287,54 +286,34 @@
       return typeof prompt === 'string' && prompt.trim() ? prompt : 'Не вдалося сформувати prompt.';
     }
 
-    function renderPrompt(scenario, focusPrompt) {
-      const panel = document.querySelector(`[data-ai-panel="${scenario}"]`);
-      const output = document.querySelector(`[data-ai-prompt="${scenario}"]`);
-      const showButton = document.querySelector(`[data-ai-action="show"][data-ai-scenario="${scenario}"]`);
-      if (!panel || !output) return '';
-      const prompt = buildPrompt(scenario);
-      output.textContent = prompt;
-      panel.hidden = false;
-      if (showButton) {
-        showButton.textContent = 'Оновити prompt';
-        showButton.setAttribute('aria-expanded', 'true');
-      }
-      if (focusPrompt) output.focus({ preventScroll: true });
-      return prompt;
-    }
-
-    showButtons.forEach(button => {
-      button.setAttribute('aria-expanded', 'false');
-      button.addEventListener('click', () => renderPrompt(button.dataset.aiScenario, true));
-    });
 
     copyButtons.forEach(button => {
       button.addEventListener('click', async () => {
         const scenario = button.dataset.aiScenario;
         const status = document.querySelector(`[data-ai-status="${scenario}"]`);
-        const prompt = renderPrompt(scenario, false);
+        const prompt = buildPrompt(scenario);
+        const originalText = 'Скопіювати prompt';
         try {
           await copyToClipboard(prompt);
+          button.textContent = 'Скопійовано';
           if (status) {
             status.className = 'ai-copy-status show success';
             status.textContent = 'Скопійовано';
           }
+          window.setTimeout(() => {
+            button.textContent = originalText;
+            if (status) {
+              status.className = 'ai-copy-status';
+              status.textContent = '';
+            }
+          }, 1800);
         } catch (error) {
+          button.textContent = originalText;
           if (status) {
             status.className = 'ai-copy-status show neutral';
-            status.textContent = 'Не вдалося скопіювати. Виділіть prompt і скопіюйте його вручну.';
+            status.textContent = 'Не вдалося скопіювати. Дозвольте доступ до буфера обміну та спробуйте ще раз.';
           }
         }
-      });
-    });
-
-    document.querySelectorAll('[data-store]').forEach(field => {
-      field.addEventListener('input', () => {
-        document.querySelectorAll('.ai-prompt-panel:not([hidden])').forEach(panel => {
-          const scenario = panel.dataset.aiPanel;
-          const output = document.querySelector(`[data-ai-prompt="${scenario}"]`);
-          if (output) output.textContent = buildPrompt(scenario);
-        });
       });
     });
   }
