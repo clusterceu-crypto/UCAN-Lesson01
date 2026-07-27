@@ -170,27 +170,16 @@
 
   function updatePreview() {
     const preview = document.getElementById('cardPreview');
-    const printAnswers = document.getElementById('printAnswers');
-    const printDate = document.getElementById('printDate');
-    const printCommunityName = document.getElementById('printCommunityName');
-    if (!printAnswers || !printDate) return;
+    if (!preview) return;
 
     const today = new Date().toLocaleDateString('uk-UA');
-    printDate.textContent = today;
-    if (printCommunityName) printCommunityName.textContent = getValue('communityName') || '—';
     const artifactRows = worksheetLabels.filter(([key]) => key !== 'communityName');
     const rows = artifactRows.map(([key, label]) => {
       const value = escapeHtml(getValue(key) || '—').replace(/\n/g, '<br>');
       return `<div class="preview-row"><strong>${label}</strong><span>${value}</span></div>`;
     }).join('');
 
-    if (preview) {
-      preview.innerHTML = `<p><strong>Картка кліматичного виклику громади</strong></p><p>Дата: ${today}</p>${rows}`;
-    }
-    printAnswers.innerHTML = artifactRows.map(([key, label]) => {
-      const value = escapeHtml(getValue(key) || '—').replace(/\n/g, '<br>');
-      return `<div class="print-answer"><strong>${label}</strong><span>${value}</span></div>`;
-    }).join('');
+    preview.innerHTML = `<p><strong>Картка кліматичного виклику громади</strong></p><p>Дата: ${today}</p>${rows}`;
   }
 
   function setupDecision() {
@@ -267,62 +256,67 @@
   }
 
   function setupAIAssistant() {
-    const copyBtn = document.getElementById('copyAIPrompt');
-    const feedback = document.getElementById('aiPromptFeedback');
-    if (!copyBtn || !feedback) return;
+    const copyButtons = Array.from(document.querySelectorAll('[data-ai-action="copy"]'));
+    if (!copyButtons.length) return;
 
-    function buildPrompt() {
-      const answers = worksheetLabels.map(([key, label]) => {
-        const value = getValue(key).trim() || '[не заповнено]';
+    const safetyInstruction = [
+      'Не оцінюй картку як підтверджений факт.',
+      'Відокремлюй інформацію користувача від припущень.',
+      'Не використовуй формулювання “ідеально”, “правильно”, “гарантовано”.',
+      'Не додавай непідтверджені факти.',
+      'Усі пропозиції позначай як гіпотези або варіанти для перевірки.'
+    ].join('\n');
+
+    function cardContext() {
+      return worksheetLabels.map(([key, label]) => {
+        const rawValue = getValue(key);
+        const value = typeof rawValue === 'string' && rawValue.trim() ? rawValue.trim() : 'Не заповнено';
         return `${label}\n${value}`;
       }).join('\n\n');
-
-      return `Ви — AI-помічник UCAN для міського голови та управлінської команди.
-
-Допоможіть перевірити логіку Картки кліматичного виклику громади. Не пишіть завдання замість мене, не вигадуйте факти й не додавайте непідтверджені дані.
-
-Перевірте послідовність: проблема → дані → команда → рішення → перший крок.
-
-Моя картка:
-
-${answers}
-
-Дайте короткий зворотний зв’язок за чотирма пунктами:
-1. Що сформульовано чітко.
-2. Що потребує уточнення.
-3. Яке одне управлінське питання варто додати.
-4. Який реалістичний перший крок можна обговорити з командою.`;
     }
 
-    async function copyText(text) {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-        return;
-      }
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.setAttribute('readonly', '');
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      const copied = document.execCommand('copy');
-      textarea.remove();
-      if (!copied) throw new Error('Copy command failed');
+    function buildPrompt(scenario) {
+      const card = cardContext();
+      const prompts = {
+        logic: `Ви — AI-помічник UCAN для міського голови та управлінської команди.\n\nЗавдання: перевірити логіку Картки кліматичного виклику громади. Не переписуйте завдання замість користувача. Перевірте, чи послідовно пов’язані: міський виклик → причина неефективності старої моделі → потрібні дані → залучені департаменти або партнери → smart-підхід → перший крок.\n\nКартка користувача:\n\n${card}\n\nДайте відповідь у чотирьох коротких блоках:\n1. Логічні зв’язки, які вже зрозумілі.\n2. Прогалини або суперечності, які варто уточнити.\n3. Припущення, які потрібно перевірити даними або розмовою з командою.\n4. Одне уточнювальне управлінське питання.\n\nПравила безпеки:\n${safetyInstruction}`,
+        wording: `Ви — AI-помічник UCAN для міського голови та управлінської команди.\n\nЗавдання: допомогти уточнити формулювання Картки кліматичного виклику громади, зберігаючи зміст користувача. Не додавайте нових фактів, прикладів, цифр, причин або висновків. Не перетворюйте припущення на твердження.\n\nКартка користувача:\n\n${card}\n\nДля кожного заповненого поля:\n1. Коротко вкажіть, що може бути незрозумілим або надто загальним.\n2. Запропонуйте одне ясніше формулювання без зміни змісту.\n3. Позначте, яку інформацію ще має підтвердити користувач.\n\nНе заповнюйте порожні поля замість користувача.\n\nПравила безпеки:\n${safetyInstruction}`,
+        'first-step': `Ви — AI-помічник UCAN для міського голови та управлінської команди.\n\nЗавдання: перевірити реалістичність першого кроку з Картки кліматичного виклику громади на період найближчих двох тижнів. Спирайтеся лише на інформацію користувача.\n\nКартка користувача:\n\n${card}\n\nПеревірте перший крок за п’ятьма критеріями:\n1. Чи має він конкретний результат.\n2. Чи зрозуміло, хто має почати дію.\n3. Чи доступні потрібні дані або їх можна швидко запросити.\n4. Чи залежить крок від непідтверджених рішень, ресурсів або партнерів.\n5. Чи реально розпочати або завершити його протягом двох тижнів.\n\nНаприкінці запропонуйте не більше двох обережних варіантів уточнення першого кроку, не додаючи нових фактів.\n\nПравила безпеки:\n${safetyInstruction}`
+      };
+      const prompt = prompts[scenario];
+      return typeof prompt === 'string' && prompt.trim() ? prompt : 'Не вдалося сформувати prompt.';
     }
 
-    copyBtn.addEventListener('click', async () => {
-      try {
-        await copyText(buildPrompt());
-        feedback.className = 'feedback show success';
-        feedback.textContent = 'Промпт скопійовано. Відкрийте обраний AI-сервіс і вставте його в чат.';
-      } catch (error) {
-        feedback.className = 'feedback show neutral';
-        feedback.textContent = 'Не вдалося скопіювати автоматично. Спробуйте ще раз у захищеному браузерному вікні.';
-      }
+
+    copyButtons.forEach(button => {
+      button.addEventListener('click', async () => {
+        const scenario = button.dataset.aiScenario;
+        const status = document.querySelector(`[data-ai-status="${scenario}"]`);
+        const prompt = buildPrompt(scenario);
+        const originalText = 'Скопіювати prompt';
+        try {
+          await copyToClipboard(prompt);
+          button.textContent = 'Скопійовано';
+          if (status) {
+            status.className = 'ai-copy-status show success';
+            status.textContent = 'Скопійовано';
+          }
+          window.setTimeout(() => {
+            button.textContent = originalText;
+            if (status) {
+              status.className = 'ai-copy-status';
+              status.textContent = '';
+            }
+          }, 1800);
+        } catch (error) {
+          button.textContent = originalText;
+          if (status) {
+            status.className = 'ai-copy-status show neutral';
+            status.textContent = 'Не вдалося скопіювати. Дозвольте доступ до буфера обміну та спробуйте ще раз.';
+          }
+        }
+      });
     });
   }
-
 
   function setupImageModal() {
     const modal = document.getElementById('imageModal');
@@ -336,7 +330,7 @@ ${answers}
       trigger = image;
       modalImage.src = image.currentSrc || image.src;
       modalImage.alt = image.alt || '';
-      caption.textContent = image.alt || '';
+      if (caption) caption.textContent = image.alt || '';
       modal.classList.add('open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('modal-open');
@@ -349,11 +343,15 @@ ${answers}
       modal.setAttribute('aria-hidden', 'true');
       modalImage.removeAttribute('src');
       document.body.classList.remove('modal-open');
-      if (trigger) trigger.focus();
+      if (trigger && document.contains(trigger)) trigger.focus();
+      trigger = null;
     }
 
     document.querySelectorAll('.zoomable-image').forEach(image => {
-      image.addEventListener('click', () => openModal(image));
+      image.addEventListener('click', event => {
+        event.preventDefault();
+        openModal(image);
+      });
       image.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
@@ -361,12 +359,15 @@ ${answers}
         }
       });
     });
-    closeBtn.addEventListener('click', closeModal);
-    modal.addEventListener('click', event => {
-      if (event.target === modal) closeModal();
+
+    closeBtn.addEventListener('click', event => {
+      event.stopPropagation();
+      closeModal();
     });
+    modalImage.addEventListener('click', event => event.stopPropagation());
+    modal.addEventListener('click', closeModal);
     document.addEventListener('keydown', event => {
-      if (event.key === 'Escape') closeModal();
+      if (event.key === 'Escape' && modal.classList.contains('open')) closeModal();
     });
   }
 
@@ -425,12 +426,288 @@ ${answers}
     }
   }
 
-  function setupPrint() {
-    const printBtn = document.getElementById('printCard');
-    if (!printBtn) return;
-    printBtn.addEventListener('click', () => {
-      updatePreview();
-      window.print();
+  function formatLocalIsoDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function safeFilePart(value) {
+    const cleaned = String(value || 'Громада')
+      .trim()
+      .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '')
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_')
+      .slice(0, 80);
+    return cleaned || 'Громада';
+  }
+
+  function wrapCanvasText(ctx, value, maxWidth) {
+    const paragraphs = String(value || '—').replace(/\r/g, '').split('\n');
+    const lines = [];
+    paragraphs.forEach((paragraph, paragraphIndex) => {
+      const words = paragraph.trim().split(/\s+/).filter(Boolean);
+      if (!words.length) {
+        lines.push('');
+      } else {
+        let line = '';
+        words.forEach(word => {
+          const candidate = line ? `${line} ${word}` : word;
+          if (ctx.measureText(candidate).width <= maxWidth) {
+            line = candidate;
+            return;
+          }
+          if (line) lines.push(line);
+          if (ctx.measureText(word).width <= maxWidth) {
+            line = word;
+            return;
+          }
+          let fragment = '';
+          Array.from(word).forEach(character => {
+            const next = fragment + character;
+            if (ctx.measureText(next).width > maxWidth && fragment) {
+              lines.push(fragment);
+              fragment = character;
+            } else {
+              fragment = next;
+            }
+          });
+          line = fragment;
+        });
+        if (line) lines.push(line);
+      }
+      if (paragraphIndex < paragraphs.length - 1) lines.push('');
+    });
+    return lines.length ? lines : ['—'];
+  }
+
+  function createArtifactCanvases() {
+    const width = 1240;
+    const height = 1754;
+    const margin = 88;
+    const contentWidth = width - margin * 2;
+    const bottomLimit = height - 115;
+    const pages = [];
+    let canvas;
+    let ctx;
+    let y;
+
+    function startPage(isFirst) {
+      canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.textBaseline = 'top';
+
+      ctx.fillStyle = '#123b63';
+      ctx.font = '700 50px Arial, "Noto Sans", sans-serif';
+      ctx.fillText('UCAN', margin, 62);
+      ctx.fillStyle = '#3d8b61';
+      ctx.fillRect(margin, 122, 145, 8);
+
+      if (isFirst) {
+        ctx.fillStyle = '#123b63';
+        ctx.font = '700 42px Arial, "Noto Sans", sans-serif';
+        const titleLines = wrapCanvasText(ctx, 'Картка кліматичного виклику', contentWidth);
+        let titleY = 166;
+        titleLines.forEach(line => {
+          ctx.fillText(line, margin, titleY);
+          titleY += 54;
+        });
+        y = titleY + 26;
+
+        ctx.fillStyle = '#41566b';
+        ctx.font = '400 25px Arial, "Noto Sans", sans-serif';
+        ctx.fillText(`Дата: ${new Date().toLocaleDateString('uk-UA')}`, margin, y);
+        y += 43;
+        const community = getValue('communityName').trim() || '—';
+        const communityLines = wrapCanvasText(ctx, `Громада: ${community}`, contentWidth);
+        communityLines.forEach(line => {
+          ctx.fillText(line, margin, y);
+          y += 36;
+        });
+        y += 35;
+      } else {
+        ctx.fillStyle = '#123b63';
+        ctx.font = '700 28px Arial, "Noto Sans", sans-serif';
+        ctx.fillText('Картка кліматичного виклику', margin, 158);
+        y = 222;
+      }
+      pages.push(canvas);
+    }
+
+    function ensureSpace(requiredHeight) {
+      if (y + requiredHeight <= bottomLimit) return;
+      startPage(false);
+    }
+
+    function drawField(label, value) {
+      ctx.font = '700 25px Arial, "Noto Sans", sans-serif';
+      const labelLines = wrapCanvasText(ctx, label, contentWidth);
+      ctx.font = '400 25px Arial, "Noto Sans", sans-serif';
+      const valueLines = wrapCanvasText(ctx, value || '—', contentWidth);
+      const estimated = labelLines.length * 34 + valueLines.length * 35 + 54;
+      ensureSpace(Math.min(estimated, bottomLimit - y));
+
+      ctx.fillStyle = '#123b63';
+      ctx.font = '700 25px Arial, "Noto Sans", sans-serif';
+      labelLines.forEach(line => {
+        ensureSpace(45);
+        ctx.fillText(line, margin, y);
+        y += 34;
+      });
+      y += 8;
+
+      ctx.fillStyle = '#172b3a';
+      ctx.font = '400 25px Arial, "Noto Sans", sans-serif';
+      valueLines.forEach(line => {
+        ensureSpace(45);
+        ctx.fillText(line || ' ', margin, y);
+        y += 35;
+      });
+      y += 20;
+      ctx.fillStyle = '#d7e2ea';
+      ctx.fillRect(margin, y, contentWidth, 2);
+      y += 28;
+    }
+
+    startPage(true);
+    worksheetLabels
+      .filter(([key]) => key !== 'communityName')
+      .forEach(([key, label]) => drawField(label, getValue(key).trim() || '—'));
+
+    ensureSpace(90);
+    ctx.fillStyle = '#e9f5ee';
+    ctx.fillRect(margin, y, 390, 58);
+    ctx.fillStyle = '#276b49';
+    ctx.font = '700 24px Arial, "Noto Sans", sans-serif';
+    ctx.fillText('Артефакт Портфеля мера', margin + 20, y + 15);
+
+    return pages;
+  }
+
+  function canvasToJpegBytes(canvas) {
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.94);
+    const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+    const binary = window.atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return bytes;
+  }
+
+  function buildImagePdf(images, pixelWidth, pixelHeight) {
+    const encoder = new TextEncoder();
+    const chunks = [];
+    const offsets = [];
+    let length = 0;
+
+    function append(data) {
+      const bytes = typeof data === 'string' ? encoder.encode(data) : data;
+      chunks.push(bytes);
+      length += bytes.length;
+    }
+
+    function beginObject(id) {
+      offsets[id] = length;
+      append(`${id} 0 obj\n`);
+    }
+
+    function endObject() {
+      append('endobj\n');
+    }
+
+    const pageWidth = 595.28;
+    const pageHeight = 841.89;
+    const objectCount = 2 + images.length * 3;
+    append('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+
+    beginObject(1);
+    append('<< /Type /Catalog /Pages 2 0 R >>\n');
+    endObject();
+
+    const pageIds = images.map((_, index) => 3 + index * 3);
+    beginObject(2);
+    append(`<< /Type /Pages /Count ${images.length} /Kids [${pageIds.map(id => `${id} 0 R`).join(' ')}] >>\n`);
+    endObject();
+
+    images.forEach((imageBytes, index) => {
+      const pageId = 3 + index * 3;
+      const contentId = pageId + 1;
+      const imageId = pageId + 2;
+      const content = `q\n${pageWidth} 0 0 ${pageHeight} 0 0 cm\n/Im0 Do\nQ\n`;
+
+      beginObject(pageId);
+      append(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /Im0 ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>\n`);
+      endObject();
+
+      beginObject(contentId);
+      append(`<< /Length ${encoder.encode(content).length} >>\nstream\n${content}endstream\n`);
+      endObject();
+
+      beginObject(imageId);
+      append(`<< /Type /XObject /Subtype /Image /Width ${pixelWidth} /Height ${pixelHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imageBytes.length} >>\nstream\n`);
+      append(imageBytes);
+      append('\nendstream\n');
+      endObject();
+    });
+
+    const xrefOffset = length;
+    append(`xref\n0 ${objectCount + 1}\n`);
+    append('0000000000 65535 f \n');
+    for (let id = 1; id <= objectCount; id += 1) {
+      append(`${String(offsets[id]).padStart(10, '0')} 00000 n \n`);
+    }
+    append(`trailer\n<< /Size ${objectCount + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
+    return new Blob(chunks, { type: 'application/pdf' });
+  }
+
+  function setupPdfExport() {
+    const pdfBtn = document.getElementById('printCard');
+    const feedback = document.getElementById('pdfExportFeedback');
+    if (!pdfBtn) return;
+
+    pdfBtn.addEventListener('click', () => {
+      const originalText = pdfBtn.textContent;
+      pdfBtn.disabled = true;
+      pdfBtn.textContent = 'Створення PDF…';
+      if (feedback) {
+        feedback.className = 'feedback show neutral';
+        feedback.textContent = 'Готуємо картку до завантаження.';
+      }
+      try {
+        const canvases = createArtifactCanvases();
+        if (!canvases.length) throw new Error('PDF pages were not created');
+        const images = canvases.map(canvasToJpegBytes);
+        const pdfBlob = buildImagePdf(images, canvases[0].width, canvases[0].height);
+        if (!pdfBlob.size) throw new Error('PDF file is empty');
+        const community = safeFilePart(getValue('communityName'));
+        const fileName = `Картка_кліматичного_виклику_${community}_${formatLocalIsoDate(new Date())}.pdf`;
+        const url = URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+        if (feedback) {
+          feedback.className = 'feedback show success';
+          feedback.textContent = 'PDF створено та завантажено.';
+        }
+      } catch (error) {
+        if (feedback) {
+          feedback.className = 'feedback show neutral';
+          feedback.textContent = 'Не вдалося створити PDF у цьому браузері. Спробуйте оновити сторінку або відкрити її в сучасному браузері.';
+        }
+        console.error('UCAN PDF export failed:', error);
+      } finally {
+        pdfBtn.disabled = false;
+        pdfBtn.textContent = originalText;
+      }
     });
   }
 
@@ -455,7 +732,7 @@ ${answers}
   setupDecision();
   setupQuiz();
   setupAIAssistant();
-  setupPrint();
+  setupPdfExport();
   setupImageModal();
   setupFinalActions();
   if (interactiveIndex > -1 && current > interactiveIndex && !decisionCompleted()) current = interactiveIndex;
