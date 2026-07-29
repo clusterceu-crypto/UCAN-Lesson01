@@ -2,6 +2,7 @@
   const screens = Array.from(document.querySelectorAll('.screen'));
   const pageMenu = document.getElementById('pageMenu');
   const progressLabel = document.getElementById('progressLabel');
+  const pageLabel = document.getElementById('page-label');
   const progressPercent = document.getElementById('progressPercent');
   const progressBar = document.getElementById('progressBar');
   const prevBtn = document.getElementById('prevBtn');
@@ -126,6 +127,7 @@
     });
     const percent = Math.round(((current + 1) / screens.length) * 100);
     progressLabel.textContent = `Сторінка ${current + 1} з ${screens.length}`;
+    pageLabel.textContent = screens[current].dataset.title || '';
     progressPercent.textContent = `${percent}%`;
     progressBar.style.width = `${percent}%`;
     prevBtn.disabled = current === 0;
